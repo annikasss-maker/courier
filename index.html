@@ -229,7 +229,6 @@ tr:last-child td { border-bottom: none; }
         <button class="btn-add" id="btn-add" onclick="addEnvelope()">+ Agregar</button>
       </div>
   </div>
- </div>
 
   <div class="toolbar">
     <p class="section-title" style="margin:0">Sobres del día</p>
@@ -537,7 +536,7 @@ function renderAdminTable() {
   const tbody = document.getElementById('admin-tbody');
   if (!envelopes.length) { tbody.innerHTML='<tr class="empty-row"><td colspan="6">No hay sobres asignados hoy</td></tr>'; return; }
   const hoy = new Date().toLocaleDateString('es-PY',{day:'2-digit',month:'2-digit',year:'numeric'});
-  tbody.innerHTML = envelopes.map(e => {
+  tbody.innerHTML = sortEnvelopes(envelopes).map(e => {
     const sk = statusKey(e.estado);
     const esAnterior = e.fecha && e.fecha !== hoy;
     const ubic = e.ubicacion ? (e.ubicacion.startsWith('http') ? `<a href="${e.ubicacion}" target="_blank" style="color:var(--blue);font-size:12px">Ver mapa</a>` : `<span style="font-size:12px">${e.ubicacion}</span>`) : '—';
@@ -584,12 +583,17 @@ function renderStats() {
   document.getElementById('stat-issues').textContent    = envelopes.filter(e=>e.estado==='No entregado'||e.estado==='Reagendado').length;
 }
 
+function sortEnvelopes(list) {
+  const order = { 'Pendiente':0, 'No entregado':1, 'Reagendado':2, 'Entregado':3, 'Rendido':4 };
+  return [...list].sort((a,b) => (order[a.estado]??2) - (order[b.estado]??2));
+}
+
 function renderCourierView() {
   const courier = document.getElementById('courier-select').value;
   document.getElementById('courier-avatar').textContent = courier.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
 
-  const mine  = envelopes.filter(e => e.courier === courier);
-  const otros = envelopes.filter(e => e.courier !== courier && e.estado === 'Pendiente');
+  const mine  = sortEnvelopes(envelopes.filter(e => e.courier === courier));
+  const otros = sortEnvelopes(envelopes.filter(e => e.courier !== courier && e.estado === 'Pendiente'));
   const list  = document.getElementById('card-list');
 
   if (!mine.length && !otros.length) {
