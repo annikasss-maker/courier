@@ -185,6 +185,15 @@ tr:last-child td { border-bottom: none; }
     <div class="stat-card"><div class="stat-label">Con novedad</div><div class="stat-value red" id="stat-issues">—</div></div>
   </div>
 
+  <p class="section-title">Couriers activos</p>
+  <div class="courier-mgmt">
+    <div class="courier-list" id="courier-tag-list"></div>
+    <div class="courier-add-row">
+      <input type="text" id="inp-new-courier" placeholder="Nombre del courier temporal">
+      <button onclick="addTempCourier()">+ Agregar</button>
+    </div>
+  </div>
+
   <p class="section-title">Agregar sobre</p>
   <div class="add-form">
     <div class="form-row">
@@ -220,17 +229,8 @@ tr:last-child td { border-bottom: none; }
         <button class="btn-add" id="btn-add" onclick="addEnvelope()">+ Agregar</button>
       </div>
     </div>
-  </div> 
-  
-  <p class="section-title">Couriers activos</p>
-  <div class="courier-mgmt">
-    <div class="courier-list" id="courier-tag-list"></div>
-    <div class="courier-add-row">
-      <input type="text" id="inp-new-courier" placeholder="Nombre del courier temporal">
-      <button onclick="addTempCourier()">+ Agregar</button>
-    </div>
   </div>
-  
+
   <div class="toolbar">
     <p class="section-title" style="margin:0">Sobres del día</p>
     <div style="display:flex;gap:8px">
@@ -238,7 +238,6 @@ tr:last-child td { border-bottom: none; }
       <button class="btn-export"  onclick="exportCSV()">↓ Exportar CSV</button>
     </div>
   </div>
-  
   <div class="table-wrap">
     <table>
       <thead><tr>
@@ -398,12 +397,12 @@ async function api(body, retries=2) {
         openPinModal();
         return d;
       }
-      }
       // Acción bloqueada sin token (ej: courier intenta rendir)
       if (d && !d.ok && d.msg && !sessionToken) {
         showToast(d.msg);
         return d;
-        
+      }
+      return d;
     } catch(e) {
       if (i < retries) { setSyncStatus('syncing',`Reintentando (${i+1})...`); await new Promise(r=>setTimeout(r,2000)); continue; }
       setSyncStatus('error','Error de conexión');
@@ -460,7 +459,9 @@ async function updateEnvelope(id, estado, notas) {
 }
 
 async function reasignarCourier(id, nuevoCourier) {
-  const res = await api({accion:'reasignar', token:sessionToken, id, courier: nuevoCourier});
+  const body = {accion:'reasignar', id, courier: nuevoCourier};
+  if (sessionToken) body.token = sessionToken;
+  const res = await api(body);
   if (res && res.ok) { showToast(`Sobre tomado por ${nuevoCourier}`); await loadData(); }
 }
 
@@ -628,7 +629,7 @@ function renderCourierView() {
 
 function cardHTML(e, currentCourier, esOtro) {
   const ubic = e.ubicacion ? (e.ubicacion.startsWith('http') ? `<a href="${e.ubicacion}" target="_blank" style="color:var(--blue)">Ver ubicación en mapa</a>` : e.ubicacion) : null;
-  const franjaIcon = { 'Mañana':'🌅', 'Tarde':'☀️' };
+  const franjaIcon = { 'Mañana':'🌅', 'Tarde':'☀️', 'Noche':'🌙' };
   const hoy = new Date().toLocaleDateString('es-PY',{day:'2-digit',month:'2-digit',year:'numeric'});
   const esAnterior = e.fecha && e.fecha !== hoy;
   return `<div class="envelope-card ${e.estado.replace(' ','-')} ${esOtro?'otro-courier':''}">
