@@ -306,7 +306,7 @@ tr:last-child td { border-bottom: none; }
 <div class="toast" id="toast"></div>
 
 <script>
-const API_URL   = 'https://script.google.com/macros/s/AKfycbzNPn0xsJMr9lDPtpOuQ2Wr7O7rDJVMyAlHglx9gG03BLdzXi3zJ2eccKEI-YHvgO4AoA/exec';
+const API_URL   = 'https://script.google.com/macros/s/AKfycbxWG2qYIvOchpBHuxEwItindWMWa5LaxHxHhTPuaBKTWTjzrdY1kiIW7kdGxOfTi2Z5Nw/exec';
 const BASE_COURIERS = ['José', 'Ezequiel'];
 
 let envelopes = [], pendingAction = null, isAdmin = false, sessionToken = null;
@@ -386,9 +386,11 @@ async function api(body, retries=2) {
       clearTimeout(t);
       const d = await r.json();
       setSyncStatus('ok','Conectado');
-      // Sesión expirada → forzar re-login solo si era admin
+      // Sesión expirada → forzar re-login solo si la acción requería token
+      const accionRequiereToken = body.accion === 'agregar' || body.accion === 'eliminar' ||
+        (body.accion === 'actualizar' && body.estado === 'rendido');
       if (d && !d.ok && d.code === 'SESSION_EXPIRED') {
-        if (!isAdmin) return d; // courier ignora SESSION_EXPIRED
+        if (!accionRequiereToken) return d; // acciones de courier nunca piden PIN
         isAdmin=false; sessionToken=null;
         document.getElementById('btn-admin-toggle').textContent='Panel operativo';
         document.getElementById('btn-admin-toggle').classList.remove('is-admin');
