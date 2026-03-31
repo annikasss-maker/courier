@@ -455,6 +455,7 @@ async function addEnvelope() {
 async function updateEnvelope(id, estado, notas) {
   const body = {accion:'actualizar', id, estado, notas};
   if (sessionToken) body.token = sessionToken;
+  console.log('sessionToken:', sessionToken, '| body:', JSON.stringify(body));
   const res = await api(body);
   if (res && res.ok) { showToast('Estado actualizado'); await loadData(); }
 }
