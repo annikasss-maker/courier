@@ -318,16 +318,24 @@ const BASE_COURIERS = ['José', 'Ezequiel'];
 
 let envelopes = [], pendingAction = null, isAdmin = false, sessionToken = null;
 
-// Couriers: base + temporales guardados en localStorage
+// Couriers: base fijos + temporales desde el servidor
+let tempCouriers = []; // caché local, se carga al iniciar
+
 function getCouriers() {
-  const temp = JSON.parse(localStorage.getItem('temp_couriers') || '[]');
-  return [...BASE_COURIERS, ...temp];
+  return [...BASE_COURIERS, ...tempCouriers];
 }
-function saveTempCouriers(list) {
-  localStorage.setItem('temp_couriers', JSON.stringify(list));
+async function loadCouriers() {
+  const res = await api({ accion: 'getCouriers' });
+  if (res && res.ok) {
+    tempCouriers = res.couriers || [];
+  }
+}
+async function saveTempCouriers(list) {
+  tempCouriers = list;
+  await api({ accion: 'saveCouriers', token: sessionToken, couriers: list });
 }
 function getTempCouriers() {
-  return JSON.parse(localStorage.getItem('temp_couriers') || '[]');
+  return tempCouriers;
 }
 
 function populateCourierSelects() {
@@ -351,32 +359,32 @@ function renderCourierTags() {
   ].join('');
 }
 
-function addTempCourier() {
+async function addTempCourier() {
   const inp = document.getElementById('inp-new-courier');
   const name = inp.value.trim();
   if (!name) { showToast('Escribí un nombre.'); return; }
-  const temp = getTempCouriers();
   if (getCouriers().includes(name)) { showToast('Ese courier ya existe.'); return; }
-  temp.push(name);
-  saveTempCouriers(temp);
+  const temp = [...getTempCouriers(), name];
+  await saveTempCouriers(temp);
   inp.value = '';
   populateCourierSelects();
   renderCourierTags();
   showToast(`${name} agregado como courier temporal`);
 }
 
-function removeTempCourier(name) {
+async function removeTempCourier(name) {
   if (!confirm(`¿Eliminar a ${name} de la lista?`)) return;
   const temp = getTempCouriers().filter(c => c !== name);
-  saveTempCouriers(temp);
+  await saveTempCouriers(temp);
   populateCourierSelects();
   renderCourierTags();
   showToast(`${name} eliminado`);
 }
 
-function init() {
+async function init() {
   document.getElementById('header-date').textContent =
     new Date().toLocaleDateString('es-PY', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+  await loadCouriers();       // ← carga desde el servidor antes de renderizar
   populateCourierSelects();
   renderCourierTags();
   switchView('courier');
