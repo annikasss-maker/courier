@@ -173,6 +173,13 @@ tr:last-child td { border-bottom: none; }
   .main { padding: 16px 14px 48px; }
   .stats-bar { grid-template-columns: 1fr 1fr; }
 }
+/* === SUCURSAL VIEW === */
+.sucursal-card { background: var(--surface); border: 1px solid var(--border-soft); border-radius: var(--radius); padding: 16px 18px; border-left: 3px solid var(--border); }
+.sucursal-card.recibido { border-left-color: var(--green); }
+.sucursal-card.pendiente { border-left-color: var(--amber); }
+.sucursal-received-by { font-size: 12px; color: var(--green-text); background: var(--green-bg); border-radius: var(--radius-sm); padding: 5px 10px; margin-top: 8px; }
+.badge-sucursal-recibido { background: var(--green-bg); color: var(--green-text); }
+.badge-sucursal-pendiente { background: var(--amber-bg); color: var(--amber-text); }
 </style>
 </head>
 <body>
@@ -190,9 +197,10 @@ tr:last-child td { border-bottom: none; }
 </div>
 
 <div class="view-toggle">
-  <button class="view-btn admin-only" id="tab-admin"   onclick="switchView('admin')"   style="display:none">Panel de asignación</button>
-  <button class="view-btn active"     id="tab-courier" onclick="switchView('courier')">Vista courier</button>
-  <button class="view-btn admin-only" id="tab-log"     onclick="switchView('log')"     style="display:none">Registro del día</button>
+  <button class="view-btn admin-only" id="tab-admin"    onclick="switchView('admin')"    style="display:none">Panel de asignación</button>
+  <button class="view-btn active"     id="tab-courier"  onclick="switchView('courier')">Vista courier</button>
+  <button class="view-btn"            id="tab-sucursal" onclick="switchView('sucursal')">Sucursales</button>
+  <button class="view-btn admin-only" id="tab-log"      onclick="switchView('log')"      style="display:none">Registro del día</button>
 </div>
 
 <!-- ADMIN VIEW -->
@@ -242,6 +250,39 @@ tr:last-child td { border-bottom: none; }
     </div>
  </div> 
 
+  <p class="section-title">Agregar sobre para sucursal</p>
+  <div class="add-form">
+    <div class="form-row">
+      <div class="form-field"><label>Nombre cliente</label><input type="text" id="suc-name" placeholder="Ej: Empresa SA"></div>
+      <div class="form-field"><label>CI / RUC</label><input type="text" id="suc-ci" placeholder="80000000-0"></div>
+      <div class="form-field"><label>Tipo de documento</label><input type="text" id="suc-tipodoc" value="Legajos de TC"></div>
+      <div class="form-field"><label>Oficial</label>
+        <select id="suc-oficial">
+          <option value="Ana Paula Appleyard">Ana Paula Appleyard</option>
+          <option value="Christian Saggia">Christian Saggia</option>
+          <option value="Katya Cuenca">Katya Cuenca</option>
+          <option value="Marcos Ugarte">Marcos Ugarte</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-field"><label>Sucursal destino</label>
+        <select id="suc-sucursal">
+          <option value="Casa Central">Casa Central</option>
+          <option value="Sucursal Norte">Sucursal Norte</option>
+          <option value="Sucursal Sur">Sucursal Sur</option>
+          <option value="Sucursal Este">Sucursal Este</option>
+        </select>
+      </div>
+      <div class="form-field" style="grid-column:2/-1"><label>Notas operativas</label><input type="text" id="suc-notasop" placeholder="Instrucciones o referencias..."></div>
+    </div>
+    <div class="form-row" style="margin-top:4px">
+      <div class="form-field" style="display:flex;align-items:flex-end;justify-content:flex-end;grid-column:1/-1">
+        <button class="btn-add" id="btn-add-suc" onclick="addSucursalEnvelope()">+ Agregar a sucursal</button>
+      </div>
+    </div>
+  </div>
+
   <p class="section-title">Couriers activos</p>
   <div class="courier-mgmt">
     <div class="courier-list" id="courier-tag-list"></div>
@@ -288,6 +329,39 @@ tr:last-child td { border-bottom: none; }
   <div class="log-section">
     <div class="log-row log-header"><div>#</div><div>Hora</div><div>Cliente</div><div>Estado</div><div>Courier</div></div>
     <div id="log-body"><div style="padding:24px;text-align:center;font-size:13px;color:var(--text-3)">Sin actividad aún</div></div>
+  </div>
+</div>
+
+<!-- SUCURSAL VIEW -->
+<div class="main" id="view-sucursal" style="display:none">
+  <div class="courier-header">
+    <div class="courier-name-select">
+      <div class="courier-avatar" id="sucursal-avatar">SU</div>
+      <select class="courier-select" id="sucursal-select" onchange="renderSucursalView()">
+        <option value="Casa Central">Casa Central</option>
+        <option value="Sucursal Norte">Sucursal Norte</option>
+        <option value="Sucursal Sur">Sucursal Sur</option>
+        <option value="Sucursal Este">Sucursal Este</option>
+      </select>
+    </div>
+    <button class="btn-reload" onclick="loadSucursalData()">↺ Recargar</button>
+  </div>
+  <div id="sucursal-card-list"></div>
+</div>
+
+<!-- MODAL RECEPCIÓN SUCURSAL -->
+<div class="modal-overlay" id="modal-sucursal">
+  <div class="modal">
+    <h3>Confirmar recepción</h3>
+    <p>Ingresá tu nombre para registrar la recepción del documento</p>
+    <div class="form-field" style="margin-bottom:14px">
+      <label>Nombre de quien recibe</label>
+      <input type="text" id="sucursal-receptor" placeholder="Ej: María González" style="width:100%;height:40px;border:1px solid var(--border);border-radius:var(--radius-sm);padding:0 12px;font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg);outline:none;">
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeSucursalModal()">Cancelar</button>
+      <button class="btn-confirm" id="sucursal-confirm-btn" onclick="confirmRecepcion()">Confirmar recepción</button>
+    </div>
   </div>
 </div>
 
@@ -973,14 +1047,17 @@ function exportCSV() {
 }
 
 function switchView(view) {
-  document.getElementById('tab-admin').classList.toggle('active',   view==='admin');
-  document.getElementById('tab-courier').classList.toggle('active', view==='courier');
-  document.getElementById('tab-log').classList.toggle('active',     view==='log');
-  document.getElementById('view-admin').style.display   = view==='admin'  ?'block':'none';
-  document.getElementById('view-courier').style.display = view==='courier'?'block':'none';
-  document.getElementById('view-log').style.display     = view==='log'    ?'block':'none';
-  if (view==='courier') renderCourierView();
-  if (view==='log')     renderLog();
+  document.getElementById('tab-admin').classList.toggle('active',    view==='admin');
+  document.getElementById('tab-courier').classList.toggle('active',  view==='courier');
+  document.getElementById('tab-sucursal').classList.toggle('active', view==='sucursal');
+  document.getElementById('tab-log').classList.toggle('active',      view==='log');
+  document.getElementById('view-admin').style.display    = view==='admin'    ? 'block' : 'none';
+  document.getElementById('view-courier').style.display  = view==='courier'  ? 'block' : 'none';
+  document.getElementById('view-sucursal').style.display = view==='sucursal' ? 'block' : 'none';
+  document.getElementById('view-log').style.display      = view==='log'      ? 'block' : 'none';
+  if (view==='courier')  renderCourierView();
+  if (view==='log')      renderLog();
+  if (view==='sucursal') { loadSucursalData(); }
 }
 
 function setSyncStatus(s,l) {
@@ -991,6 +1068,135 @@ function showLoading(v) { document.getElementById('loading').classList.toggle('s
 function showToast(msg) {
   const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+// ===== SUCURSALES =====
+let sucursalEnvelopes = [], pendingSucursalId = null;
+
+async function loadSucursalData() {
+  showLoading(true);
+  try {
+    const body = isAdmin
+      ? { accion: 'getAllSucursales', token: sessionToken }
+      : { accion: 'getAllSucursales' };
+    const res = await api(body);
+    if (res && res.ok) {
+      sucursalEnvelopes = res.sobres || [];
+      renderSucursalView();
+    }
+  } catch(err) {
+    console.error(err);
+    showToast('Error cargando datos de sucursal');
+  } finally {
+    showLoading(false);
+  }
+}
+
+async function addSucursalEnvelope() {
+  const nombre  = document.getElementById('suc-name').value.trim();
+  const ci      = document.getElementById('suc-ci').value.trim();
+  const tipodoc = document.getElementById('suc-tipodoc').value.trim();
+  const oficial = document.getElementById('suc-oficial').value;
+  const sucursal= document.getElementById('suc-sucursal').value;
+  const notasOp = document.getElementById('suc-notasop').value.trim();
+  if (!nombre || !ci) { showToast('El nombre y CI/RUC son obligatorios.'); return; }
+  const btn = document.getElementById('btn-add-suc');
+  btn.disabled = true;
+  const body = { accion: 'agregarSucursal', token: sessionToken, nombre, ci, tipodoc, oficial, sucursal, notasOp };
+  const res = await api(body);
+  btn.disabled = false;
+  if (res && res.ok) {
+    const nuevo = { id: res.id || Date.now(), nombre, ci, tipodoc, oficial, sucursal, notasOp, estado: 'Pendiente', recibidoPor: '', fechaRecepcion: '' };
+    sucursalEnvelopes.unshift(nuevo);
+    ['suc-name','suc-ci','suc-notasop'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('suc-tipodoc').value = 'Legajos de TC';
+    renderSucursalView();
+    showToast('Sobre de sucursal agregado');
+  }
+}
+
+function renderSucursalView() {
+  const sel = document.getElementById('sucursal-select');
+  const sucursal = sel ? sel.value : '';
+  if (!sucursal) return;
+  document.getElementById('sucursal-avatar').textContent = sucursal.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  const lista = sucursalEnvelopes.filter(e => e.sucursal === sucursal);
+  const container = document.getElementById('sucursal-card-list');
+  if (!lista.length) {
+    container.innerHTML = '<div class="no-assignments">No hay documentos pendientes para esta sucursal.<br>Tocá Recargar para actualizar.</div>';
+    return;
+  }
+  const pendientes = lista.filter(e => e.estado !== 'Recibido');
+  const recibidos  = lista.filter(e => e.estado === 'Recibido');
+  let html = '';
+  if (pendientes.length) {
+    html += `<div class="courier-section-label">Pendientes de recepción (${pendientes.length})</div>`;
+    html += '<div class="card-list">' + pendientes.map(e => sucursalCardHTML(e)).join('') + '</div>';
+  }
+  if (recibidos.length) {
+    html += `<div class="courier-section-label" style="margin-top:16px">Recibidos hoy (${recibidos.length})</div>`;
+    html += '<div class="card-list">' + recibidos.map(e => sucursalCardHTML(e)).join('') + '</div>';
+  }
+  container.innerHTML = html;
+}
+
+function sucursalCardHTML(e) {
+  const recibido = e.estado === 'Recibido';
+  return `
+  <div class="sucursal-card ${recibido ? 'recibido' : 'pendiente'}">
+    <div class="card-top">
+      <div>
+        <div class="card-name">${e.nombre}</div>
+        <div class="card-ci">CI/RUC: ${e.ci}</div>
+      </div>
+      <span class="badge ${recibido ? 'badge-sucursal-recibido' : 'badge-sucursal-pendiente'}">
+        ${recibido ? '✓ Recibido' : '● Pendiente'}
+      </span>
+    </div>
+    <div class="card-info">
+      📄 ${e.tipodoc || '—'} &nbsp;·&nbsp; 👤 ${e.oficial || '—'}
+      ${e.notasOp ? `<br>📋 ${e.notasOp}` : ''}
+    </div>
+    ${recibido
+      ? `<div class="sucursal-received-by">✓ Recibido por: <strong>${e.recibidoPor}</strong> · ${e.fechaRecepcion}</div>`
+      : `<div class="card-btns" style="margin-top:10px">
+           <button class="card-btn deliver-btn" onclick="openSucursalModal('${e.id}')">
+             ✓ Marcar como recibido
+           </button>
+         </div>`
+    }
+  </div>`;
+}
+
+function openSucursalModal(id) {
+  pendingSucursalId = id;
+  document.getElementById('sucursal-receptor').value = '';
+  document.getElementById('modal-sucursal').classList.add('open');
+  setTimeout(() => document.getElementById('sucursal-receptor').focus(), 100);
+}
+function closeSucursalModal() {
+  document.getElementById('modal-sucursal').classList.remove('open');
+  pendingSucursalId = null;
+}
+async function confirmRecepcion() {
+  const receptor = document.getElementById('sucursal-receptor').value.trim();
+  if (!receptor) { showToast('Ingresá tu nombre para confirmar.'); return; }
+  const btn = document.getElementById('sucursal-confirm-btn');
+  btn.disabled = true;
+  const body = { accion: 'recibirSucursal', id: pendingSucursalId, recibidoPor: receptor };
+  const res = await api(body);
+  btn.disabled = false;
+  if (res && res.ok) {
+    const env = sucursalEnvelopes.find(e => e.id === pendingSucursalId);
+    if (env) {
+      env.estado = 'Recibido';
+      env.recibidoPor = receptor;
+      env.fechaRecepcion = new Date().toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' });
+    }
+    closeSucursalModal();
+    renderSucursalView();
+    showToast('Recepción registrada');
+  }
 }
 
 init();
