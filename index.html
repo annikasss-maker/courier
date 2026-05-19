@@ -413,7 +413,7 @@ async function api(body, retries=2) {
   for (let i=0; i<=retries; i++) {
     try {
       const ctrl = new AbortController();
-      const t = setTimeout(()=>ctrl.abort(), 25000);
+      const t = setTimeout(()=>ctrl.abort(), 12000);
       const r = await fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify(body), signal:ctrl.signal });
       clearTimeout(t);
       const d = await r.json();
@@ -448,22 +448,23 @@ async function api(body, retries=2) {
 }
 
 async function loadData() {
-  showLoading(true);
-  try {
-    await loadCouriers();        // ← agregá esta línea
-    populateCourierSelects();    // ← y esta
-    renderCourierTags();       
+    // Mostrar datos cacheados inmediatamente
+  const cached = localStorage.getItem('envelopes_cache');
+  if (cached) {
+    envelopes = JSON.parse(cached);
+    renderAdminTable(); renderStats(); renderLog(); renderCourierView();
+  }
+  showLoading(!cached);
+  try {    
     const body = isAdmin ? {accion:'getAll', token: sessionToken} : {accion:'getAll'};
     const res = await api(body);
     if (res && res.ok) {
-      envelopes = res.sobres||[];
-      renderAdminTable();
-      renderStats();
-      renderLog();
-      renderCourierView();
+      envelopes = res.sobres || [];
+      localStorage.setItem('envelopes_cache', JSON.stringify(envelopes));
+      renderAdminTable(); renderStats(); renderLog(); renderCourierView();
     }
-  } finally { showLoading(false); }
-}
+    showLoading(false);
+  }    
 
 async function addEnvelope() {
   const nombre    = document.getElementById('inp-name').value.trim();
@@ -475,17 +476,72 @@ async function addEnvelope() {
   const franja    = document.getElementById('inp-franja').value;
   const notasOp   = document.getElementById('inp-notasop').value.trim();
   const courier   = document.getElementById('inp-courier').value;
-  if (!nombre||!ci) { showToast('El nombre y CI son obligatorios.'); return; }
+
+  if (!nombre || !ci) {
+    showToast('El nombre y CI son obligatorios.');
+    return;
+  }
+
   const btn = document.getElementById('btn-add');
   btn.disabled = true;
-  const res = await api({accion:'agregar', token:sessionToken, nombre, ci, telefono, ubicacion, tipodoc, oficial, franja, notasOp, courier});
+
+  const body = {
+    accion: 'agregar',
+    token: sessionToken,
+    nombre,
+    ci,
+    telefono,
+    ubicacion,
+    tipodoc,
+    oficial,
+    franja,
+    notasOp,
+    courier
+  };
+
+  const res = await api(body);
+
   btn.disabled = false;
+
   if (res && res.ok) {
-    ['inp-name','inp-ci','inp-phone','inp-ubicacion','inp-notasop'].forEach(id=>document.getElementById(id).value='');
-    document.getElementById('inp-tipodoc').value='Legajos de TC';
-    document.getElementById('inp-franja').value='';
+
+    // Crear objeto local
+    const nuevoEnvelope = {
+      id: res.id || Date.now(), // usar ID del servidor si viene
+      nombre,
+      ci,
+      telefono,
+      ubicacion,
+      tipodoc,
+      oficial,
+      franja,
+      notasOp,
+      courier,
+      estado: 'Pendiente',
+      notasCourier: '',
+      actualizadoA: new Date().toLocaleTimeString('es-PY', {
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    };
+
+    // Insertar en array local
+    envelopes.unshift(nuevoEnvelope);
+
+    // Limpiar formulario
+    ['inp-name','inp-ci','inp-phone','inp-ubicacion','inp-notasop']
+      .forEach(id => document.getElementById(id).value = '');
+
+    document.getElementById('inp-tipodoc').value = 'Legajos de TC';
+    document.getElementById('inp-franja').value = '';
+
+    // Re-renderizar
+    renderAdminTable();
+    renderStats();
+    renderLog();
+    renderCourierView();
+
     showToast('Sobre agregado correctamente');
-    await loadData();
   }
 }
 
@@ -495,14 +551,22 @@ async function marcarEntregado(id) {
 }
 
 async function updateEnvelope(id, estado, notas) {
-  // Map action keys to Spanish estado names
-  const estadoMap = {delivered:'Entregado', failed:'No entregado', rescheduled:'Reagendado', noanswer:'No contesta', pendingsig:'Pendiente de firma/retiro'};
+  const estadoMap = {delivered:'Entregado', failed:'No entregado', ...};
   const estadoFinal = estadoMap[estado] || estado;
   const body = {accion:'actualizar', id, estado: estadoFinal, notas};
   if (sessionToken) body.token = sessionToken;
-  console.log('sessionToken:', sessionToken, '| body:', JSON.stringify(body));
   const res = await api(body);
-  if (res && res.ok) { showToast('Estado actualizado'); await loadData(); }
+  if (res && res.ok) {
+    // Actualizá localmente en vez de volver a cargar todo
+    const env = envelopes.find(e => e.id === id);
+    if (env) {
+      env.estado = estadoFinal;
+      env.notasCourier = notas;
+      env.actualizadoA = new Date().toLocaleTimeString('es-PY', {hour:'2-digit', minute:'2-digit'});
+    }
+    renderAdminTable(); renderStats(); renderLog(); renderCourierView();
+    showToast('Estado actualizado');
+  }
 }
 
 async function reasignarCourier(id, nuevoCourier) {
