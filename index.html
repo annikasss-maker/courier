@@ -448,23 +448,53 @@ async function api(body, retries=2) {
 }
 
 async function loadData() {
-    // Mostrar datos cacheados inmediatamente
+
+  // Mostrar datos cacheados inmediatamente
   const cached = localStorage.getItem('envelopes_cache');
+
   if (cached) {
     envelopes = JSON.parse(cached);
-    renderAdminTable(); renderStats(); renderLog(); renderCourierView();
+    renderAdminTable();
+    renderStats();
+    renderLog();
+    renderCourierView();
   }
+
   showLoading(!cached);
-  try {    
-    const body = isAdmin ? {accion:'getAll', token: sessionToken} : {accion:'getAll'};
+
+  try {
+
+    const body = isAdmin
+      ? { accion:'getAll', token: sessionToken }
+      : { accion:'getAll' };
+
     const res = await api(body);
+
     if (res && res.ok) {
       envelopes = res.sobres || [];
-      localStorage.setItem('envelopes_cache', JSON.stringify(envelopes));
-      renderAdminTable(); renderStats(); renderLog(); renderCourierView();
+
+      localStorage.setItem(
+        'envelopes_cache',
+        JSON.stringify(envelopes)
+      );
+
+      renderAdminTable();
+      renderStats();
+      renderLog();
+      renderCourierView();
     }
+
+  } catch(err) {
+
+    console.error(err);
+    showToast('Error cargando datos');
+
+  } finally {
+
     showLoading(false);
-  }    
+
+  }
+} 
 
 async function addEnvelope() {
   const nombre    = document.getElementById('inp-name').value.trim();
@@ -771,38 +801,128 @@ function renderCourierView() {
 }
 
 function cardHTML(e, currentCourier, esOtro) {
-  const ubic = e.ubicacion ? (e.ubicacion.startsWith('http') ? `<a href="${e.ubicacion}" target="_blank" style="color:var(--blue)">Ver ubicación en mapa</a>` : e.ubicacion) : null;
-  const franjaIcon = { 'Mañana':'🌅', 'Tarde':'☀️', 'Noche':'🌙' };
-  const hoy = new Date().toLocaleDateString('es-PY',{day:'2-digit',month:'2-digit',year:'numeric'});
+
+  const ubic = e.ubicacion
+    ? (
+        e.ubicacion.startsWith('http')
+          ? `<a href="${e.ubicacion}" target="_blank" style="color:var(--blue)">Ver ubicación en mapa</a>`
+          : e.ubicacion
+      )
+    : null;
+
+  const franjaIcon = {
+    'Mañana':'🌅',
+    'Tarde':'☀️',
+  };
+
+  const hoy = new Date().toLocaleDateString('es-PY',{
+    day:'2-digit',
+    month:'2-digit',
+    year:'numeric'
+  });
+
   const esAnterior = e.fecha && e.fecha !== hoy;
-  return `<div class="envelope-card ${e.estado.replace(/[\s\/]+/g,'-')} ${esOtro?'otro-courier':''}">
+
+  return `
+  <div class="envelope-card ${e.estado.replace(/[\s\/]+/g,'-')} ${esOtro?'otro-courier':''}">
+
     <div class="card-top">
       <div>
         <div class="card-name">${e.nombre}</div>
         <div class="card-ci">CI: ${e.ci}</div>
-        ${esAnterior?`<span style="font-size:10px;background:var(--red-bg);color:var(--red);padding:1px 6px;border-radius:999px;margin-top:2px;display:inline-block">📅 Pendiente desde ${e.fecha}</span>`:''}
+
+        ${
+          esAnterior
+            ? `<span style="font-size:10px;background:var(--red-bg);color:var(--red);padding:1px 6px;border-radius:999px;margin-top:2px;display:inline-block">
+                 📅 Pendiente desde ${e.fecha}
+               </span>`
+            : ''
+        }
       </div>
+
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
         ${badgeHTML(statusKey(e.estado))}
-        ${e.franja?`<span style="font-size:11px;background:var(--amber-bg);color:var(--amber-text);padding:2px 8px;border-radius:999px;font-weight:500">${franjaIcon[e.franja]||''} ${e.franja}</span>`:''}
+
+        ${
+          e.franja
+            ? `<span style="font-size:11px;background:var(--amber-bg);color:var(--amber-text);padding:2px 8px;border-radius:999px;font-weight:500">
+                 ${franjaIcon[e.franja]||''} ${e.franja}
+               </span>`
+            : ''
+        }
       </div>
     </div>
+
     <div class="card-info">
-      ${e.telefono?'📞 '+e.telefono:'Sin teléfono registrado'}
-      ${ubic?'<br>📍 '+ubic:''}
+      ${e.telefono ? '📞 '+e.telefono : 'Sin teléfono registrado'}
+      ${ubic ? '<br>📍 '+ubic : ''}
     </div>
-    ${e.notasOp?`<div class="card-notes" style="background:var(--blue-bg);color:var(--blue);border-left:3px solid var(--blue)">📋 ${e.notasOp}</div>`:''}
-    ${esOtro ? `<div class="card-assigned">🚚 Asignado a: ${e.courier}</div>` : ''}
-    ${e.notasCourier?`<div class="card-notes">💬 ${e.notasCourier}</div>`:''}
+
+    ${
+      e.notasOp
+        ? `<div class="card-notes" style="background:var(--blue-bg);color:var(--blue);border-left:3px solid var(--blue)">
+             📋 ${e.notasOp}
+           </div>`
+        : ''
+    }
+
+    ${
+      esOtro
+        ? `<div class="card-assigned">
+             🏍️ Asignado a: ${e.courier}
+           </div>`
+        : ''
+    }
+
+    ${
+      e.notasCourier
+        ? `<div class="card-notes">
+             💬 ${e.notasCourier}
+           </div>`
+        : ''
+    }
+
     <div class="card-btns">
-      ${esOtro
-        ? `<button class="card-btn take-btn" onclick="tomarSobre('${e.id}','${currentCourier}')">Tomar este sobre</button>`
-        : `<button class="card-btn deliver-btn ${e.estado==='Entregado'?'active':''}" onclick="marcarEntregado('${e.id}')">✓ Entregado</button>
-           <button class="card-btn fail-btn    ${e.estado==='No entregado'?'active':''}" onclick="openModal('${e.id}','failed')">✗ No pude entregar</button>
-           <button class="card-btn reschedule-btn ${e.estado==='Reagendado'?'active':''}" onclick="openModal('${e.id}','rescheduled')">↷ Reagendar</button>
-           <button class="card-btn no-answer-btn ${e.estado==='No contesta'?'active':''}" onclick="openModal('${e.id}','noanswer')">No contesta</button>
-           <button class="card-btn pending-sig-btn ${e.estado==='Pendiente de firma/retiro'?'active':''}" onclick="openModal('${e.id}','pendingsig')">Pdte. firma/retiro</button>`
+
+      ${
+        esOtro
+
+        ? `<button class="card-btn take-btn"
+             onclick="tomarSobre('${e.id}','${currentCourier}')">
+             Tomar este sobre
+           </button>`
+
+        : `
+          <button class="card-btn deliver-btn ${e.estado==='Entregado'?'active':''}"
+            onclick="marcarEntregado('${e.id}')">
+            ✓ Entregado
+          </button>
+
+          <button class="card-btn fail-btn ${e.estado==='No entregado'?'active':''}"
+            onclick="openModal('${e.id}','failed')">
+            ✗ No pude entregar
+          </button>
+
+          <button class="card-btn reschedule-btn ${e.estado==='Reagendado'?'active':''}"
+            onclick="openModal('${e.id}','rescheduled')">
+            ↷ Reagendar
+          </button>
+
+          <button class="card-btn no-answer-btn ${e.estado==='No contesta'?'active':''}"
+            onclick="openModal('${e.id}','noanswer')">
+            No contesta
+          </button>
+
+          <button class="card-btn pending-sig-btn ${e.estado==='Pendiente de firma/retiro'?'active':''}"
+            onclick="openModal('${e.id}','pendingsig')">
+            Pdte. firma/retiro
+          </button>
+        `
       }
+
+    </div>
+
+  </div>`;
 }
 
 async function tomarSobre(id, courier) {
